@@ -12,9 +12,11 @@ React is a JavaScript library for building user interfaces.
 
 React has been designed for gradual adoption from the start, and **you can use as little or as much React as you need**:
 
-* Use [Quick Start](https://react.dev/learn) to get a taste of React.
-* [Add React to an Existing Project](https://react.dev/learn/add-react-to-an-existing-project) to use as little or as much React as you need.
+* Use [Online Playgrounds](https://legacy.reactjs.org/docs/getting-started.html#online-playgrounds) to get a taste of React.
+* [Add React to a Website](https://react.dev/learn/add-react-to-an-existing-project) as a `<script>` tag in one minute.
 * [Create a New React App](https://react.dev/learn/start-a-new-react-project) if you're looking for a powerful JavaScript toolchain.
+
+You can use React as a `<script>` tag from a [CDN](https://legacy.reactjs.org/docs/cdn-links.html), or as a `react` package on [npm](https://www.npmjs.com/package/react).
 
 ## Documentation
 
@@ -28,11 +30,11 @@ The documentation is divided into several sections:
 * [Tutorial](https://react.dev/learn/tutorial-tic-tac-toe)
 * [Thinking in React](https://react.dev/learn/thinking-in-react)
 * [Installation](https://react.dev/learn/installation)
-* [Describing the UI](https://react.dev/learn/describing-the-ui)
-* [Adding Interactivity](https://react.dev/learn/adding-interactivity)
-* [Managing State](https://react.dev/learn/managing-state)
-* [Advanced Guides](https://react.dev/learn/escape-hatches)
-* [API Reference](https://react.dev/reference/react)
+* [Main Concepts](https://legacy.reactjs.org/docs/hello-world.html)
+* [Advanced Guides](https://legacy.reactjs.org/docs/jsx-in-depth.html)
+* [Hooks](https://legacy.reactjs.org/docs/hooks-intro.html)
+* [API Reference](https://legacy.reactjs.org/docs/react-api.html)
+* [Testing](https://legacy.reactjs.org/docs/testing.html)
 * [Where to Get Support](https://react.dev/community)
 * [Contributing Guide](https://legacy.reactjs.org/docs/how-to-contribute.html)
 
@@ -55,7 +57,7 @@ root.render(<HelloMessage name="Taylor" />);
 
 This example will render "Hello Taylor" into a container on the page.
 
-You'll notice that we used an HTML-like syntax; [we call it JSX](https://react.dev/learn#writing-markup-with-jsx). JSX is not required to use React, but it makes code more readable, and writing it feels like writing HTML. 
+You'll notice that we used an HTML-like syntax; [we call it JSX](https://legacy.reactjs.org/docs/introducing-jsx.html). JSX is not required to use React, but it makes code more readable, and writing it feels like writing HTML. If you're using React as a `<script>` tag, read [this section](https://react.dev/learn/add-react-to-an-existing-project#optional-try-react-with-jsx) on integrating JSX; otherwise, the [recommended JavaScript toolchains](https://react.dev/learn/start-a-new-react-project) handle it automatically.
 
 ## Contributing
 
