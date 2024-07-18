@@ -254,6 +254,7 @@ export function compileProgram(
 
   const environment = parseEnvironmentConfig(pass.opts.environment ?? {});
   const useMemoCacheIdentifier = program.scope.generateUidIdentifier("c");
+  const reactiveFnHelperIdentifier = program.scope.generateUidIdentifier("u");
   const moduleName = pass.opts.runtimeModule ?? "react/compiler-runtime";
   if (hasMemoCacheFunctionImport(program, moduleName)) {
     return;
@@ -370,6 +371,7 @@ export function compileProgram(
         config,
         fnType,
         useMemoCacheIdentifier.name,
+        reactiveFnHelperIdentifier.name,
         pass.opts.logger,
         pass.filename,
         pass.code
@@ -523,7 +525,10 @@ export function compileProgram(
       updateMemoCacheFunctionImport(
         program,
         moduleName,
-        useMemoCacheIdentifier.name
+        useMemoCacheIdentifier.name,
+        environment.unwrap().enableReactiveScopeConditionHelper
+          ? reactiveFnHelperIdentifier.name
+          : void 0
       );
     }
     addImportsToProgram(program, externalFunctions);

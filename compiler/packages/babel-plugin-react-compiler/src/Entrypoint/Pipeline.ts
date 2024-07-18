@@ -112,6 +112,7 @@ export function* run(
   config: EnvironmentConfig,
   fnType: ReactFunctionType,
   useMemoCacheIdentifier: string,
+  reactiveFnHelperIdentifier: string,
   logger: Logger | null,
   filename: string | null,
   code: string | null
@@ -125,7 +126,8 @@ export function* run(
     logger,
     filename,
     code,
-    useMemoCacheIdentifier
+    useMemoCacheIdentifier,
+    reactiveFnHelperIdentifier
   );
   yield {
     kind: "debug",
@@ -512,6 +514,7 @@ export function compileFn(
   config: EnvironmentConfig,
   fnType: ReactFunctionType,
   useMemoCacheIdentifier: string,
+  reactiveFnHelperIdentifier: string,
   logger: Logger | null,
   filename: string | null,
   code: string | null
@@ -521,6 +524,7 @@ export function compileFn(
     config,
     fnType,
     useMemoCacheIdentifier,
+    reactiveFnHelperIdentifier,
     logger,
     filename,
     code
