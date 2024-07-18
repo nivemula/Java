@@ -1891,11 +1891,26 @@ function lowerExpression(
 
       if (operator === "=") {
         const left = expr.get("left");
+
+        /*
+         * Babel already supports parsing optional member expressions: https://github.com/tc39/proposal-optional-chaining-assignment
+         * But we don't
+         */
+        if (left.type === "OptionalMemberExpression") {
+          builder.errors.push({
+            reason: `(BuildHIR::lowerExpression) Handle OptionalMemberExpression operators in AssignmentExpression`,
+            severity: ErrorSeverity.Todo,
+            loc: left.node.loc ?? null,
+            suggestions: null,
+          });
+          return { kind: "UnsupportedNode", node: exprNode, loc: exprLoc };
+        }
+
         return lowerAssignment(
           builder,
           left.node.loc ?? GeneratedSource,
           InstructionKind.Reassign,
-          left,
+          left as NodePath<t.LVal>,
           lowerExpressionToTemporary(builder, expr.get("right")),
           left.isArrayPattern() || left.isObjectPattern()
             ? "Destructure"
@@ -2451,6 +2466,10 @@ function lowerExpression(
     }
     case "TSNonNullExpression": {
       let expr = exprPath as NodePath<t.TSNonNullExpression>;
+      return lowerExpression(builder, expr.get("expression"));
+    }
+    case "TSSatisfiesExpression": {
+      const expr = exprPath as NodePath<t.TSSatisfiesExpression>;
       return lowerExpression(builder, expr.get("expression"));
     }
     case "MetaProperty": {
