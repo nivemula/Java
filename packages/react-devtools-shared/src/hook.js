@@ -34,6 +34,8 @@ import {
   supportsOwnerStacks,
 } from 'react-devtools-shared/src/backend/fiber/DevToolsFiberComponentStack';
 import {formatOwnerStack} from 'react-devtools-shared/src/backend/shared/DevToolsOwnerStack';
+import formatConsoleArguments from 'react-devtools-shared/src/backend/utils/formatConsoleArguments';
+import formatWithStyles from 'react-devtools-shared/src/backend/utils/formatWithStyles';
 
 // We add a suffix to some frames that older versions of React didn't do.
 // To compare if it's equivalent we strip out the suffix to see if they're
@@ -196,103 +198,6 @@ export function installHook(
         });
       }
     } catch (err) {}
-  }
-
-  // NOTE: KEEP IN SYNC with src/backend/utils.js
-  function formatWithStyles(
-    inputArgs: $ReadOnlyArray<any>,
-    style?: string,
-  ): $ReadOnlyArray<any> {
-    if (
-      inputArgs === undefined ||
-      inputArgs === null ||
-      inputArgs.length === 0 ||
-      // Matches any of %c but not %%c
-      (typeof inputArgs[0] === 'string' &&
-        inputArgs[0].match(/([^%]|^)(%c)/g)) ||
-      style === undefined
-    ) {
-      return inputArgs;
-    }
-
-    // Matches any of %(o|O|d|i|s|f), but not %%(o|O|d|i|s|f)
-    const REGEXP = /([^%]|^)((%%)*)(%([oOdisf]))/g;
-    if (typeof inputArgs[0] === 'string' && inputArgs[0].match(REGEXP)) {
-      return [`%c${inputArgs[0]}`, style, ...inputArgs.slice(1)];
-    } else {
-      const firstArg = inputArgs.reduce((formatStr, elem, i) => {
-        if (i > 0) {
-          formatStr += ' ';
-        }
-        switch (typeof elem) {
-          case 'string':
-          case 'boolean':
-          case 'symbol':
-            return (formatStr += '%s');
-          case 'number':
-            const formatting = Number.isInteger(elem) ? '%i' : '%f';
-            return (formatStr += formatting);
-          default:
-            return (formatStr += '%o');
-        }
-      }, '%c');
-      return [firstArg, style, ...inputArgs];
-    }
-  }
-  // NOTE: KEEP IN SYNC with src/backend/utils.js
-  function formatConsoleArguments(
-    maybeMessage: any,
-    ...inputArgs: $ReadOnlyArray<any>
-  ): $ReadOnlyArray<any> {
-    if (inputArgs.length === 0 || typeof maybeMessage !== 'string') {
-      return [maybeMessage, ...inputArgs];
-    }
-
-    const args = inputArgs.slice();
-
-    let template = '';
-    let argumentsPointer = 0;
-    for (let i = 0; i < maybeMessage.length; ++i) {
-      const currentChar = maybeMessage[i];
-      if (currentChar !== '%') {
-        template += currentChar;
-        continue;
-      }
-
-      const nextChar = maybeMessage[i + 1];
-      ++i;
-
-      // Only keep CSS and objects, inline other arguments
-      switch (nextChar) {
-        case 'c':
-        case 'O':
-        case 'o': {
-          ++argumentsPointer;
-          template += `%${nextChar}`;
-
-          break;
-        }
-        case 'd':
-        case 'i': {
-          const [arg] = args.splice(argumentsPointer, 1);
-          template += parseInt(arg, 10).toString();
-
-          break;
-        }
-        case 'f': {
-          const [arg] = args.splice(argumentsPointer, 1);
-          template += parseFloat(arg).toString();
-
-          break;
-        }
-        case 's': {
-          const [arg] = args.splice(argumentsPointer, 1);
-          template += arg.toString();
-        }
-      }
-    }
-
-    return [template, ...args];
   }
 
   let uidCounter = 0;
