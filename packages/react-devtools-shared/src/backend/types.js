@@ -383,6 +383,7 @@ export type RendererInterface = {
     forceFullData: boolean,
   ) => InspectedElementPayload,
   logElementToConsole: (id: number) => void,
+  onErrorOrWarning: OnErrorOrWarning,
   overrideError: (id: number, forceError: boolean) => void,
   overrideSuspense: (id: number, forceFallback: boolean) => void,
   overrideValueAtPath: (
@@ -392,7 +393,6 @@ export type RendererInterface = {
     path: Array<string | number>,
     value: any,
   ) => void,
-  patchConsoleForStrictMode: () => void,
   prepareViewAttributeSource: (
     id: number,
     path: Array<string | number>,
@@ -415,7 +415,6 @@ export type RendererInterface = {
     path: Array<string | number>,
     count: number,
   ) => void,
-  unpatchConsoleForStrictMode: () => void,
   updateComponentFilters: (componentFilters: Array<ComponentFilter>) => void,
 
   // Timeline profiler interface
@@ -513,6 +512,7 @@ export type DevToolsHook = {
   dangerous_setTargetConsoleForTesting?: (fakeConsole: Object) => void,
 
   settings: DevToolsHookSettings,
+  workTagMapByRendererId: Map<RendererID, WorkTagMap>,
   ...
 };
 
@@ -525,3 +525,9 @@ export type DevToolsHookSettings = {
 
 // Will be removed together with console patching from backend/console.js to hook.js
 export type ConsolePatchSettings = DevToolsHookSettings;
+
+type OnErrorOrWarning = (
+  fiber: Fiber,
+  type: 'error' | 'warn',
+  args: Array<any>,
+) => void;

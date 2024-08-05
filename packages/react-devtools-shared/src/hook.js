@@ -8,6 +8,7 @@
  * @flow
  */
 
+import type {Fiber} from 'react-reconciler/src/ReactInternalTypes';
 import type {
   DevToolsHook,
   Handler,
@@ -16,14 +17,45 @@ import type {
   RendererInterface,
   DevToolsBackend,
   DevToolsHookSettings,
-} from './backend/types';
+  WorkTagMap,
+} from 'react-devtools-shared/src/backend/types';
 
 import {
   FIREFOX_CONSOLE_DIMMING_COLOR,
   ANSI_STYLE_DIMMING_TEMPLATE,
+  ANSI_STYLE_DIMMING_TEMPLATE_WITH_COMPONENT_STACK,
 } from 'react-devtools-shared/src/constants';
+import getWorkTagMap from 'react-devtools-shared/src/backend/fiber/getWorkTagMap';
+import getDispatcherRef from 'react-devtools-shared/src/backend/fiber/getDispatcherRef';
+import {
+  getOwnerStackByFiberInDev,
+  getStackByFiberInDevAndProd,
+  supportsConsoleTasks,
+  supportsOwnerStacks,
+} from 'react-devtools-shared/src/backend/fiber/DevToolsFiberComponentStack';
+import {formatOwnerStack} from 'react-devtools-shared/src/backend/shared/DevToolsOwnerStack';
 
-declare var window: any;
+// We add a suffix to some frames that older versions of React didn't do.
+// To compare if it's equivalent we strip out the suffix to see if they're
+// still equivalent. Similarly, we sometimes use [] and sometimes () so we
+// strip them to for the comparison.
+const frameDiffs = / \(\<anonymous\>\)$|\@unknown\:0\:0$|\(|\)|\[|\]/gm;
+function areStackTracesEqual(a: string, b: string): boolean {
+  return a.replace(frameDiffs, '') === b.replace(frameDiffs, '');
+}
+
+// React's custom built component stack strings match "\s{4}in"
+// Chrome's prefix matches "\s{4}at"
+const PREFIX_REGEX = /\s{4}(in|at)\s{1}/;
+// Firefox and Safari have no prefix ("")
+// but we can fallback to looking for location info (e.g. "foo.js:12:345")
+const ROW_COLUMN_NUMBER_REGEX = /:\d+:\d+(\n|$)/;
+
+function isStringComponentStack(text: string): boolean {
+  return PREFIX_REGEX.test(text) || ROW_COLUMN_NUMBER_REGEX.test(text);
+}
+
+const targetConsole: Object = console;
 
 export function installHook(
   target: any,
@@ -31,25 +63,6 @@ export function installHook(
 ): DevToolsHook | null {
   if (target.hasOwnProperty('__REACT_DEVTOOLS_GLOBAL_HOOK__')) {
     return null;
-  }
-
-  let targetConsole: Object = console;
-  let targetConsoleMethods: {[string]: $FlowFixMe} = {};
-  for (const method in console) {
-    // $FlowFixMe[invalid-computed-prop]
-    targetConsoleMethods[method] = console[method];
-  }
-
-  function dangerous_setTargetConsoleForTesting(
-    targetConsoleForTesting: Object,
-  ): void {
-    targetConsole = targetConsoleForTesting;
-
-    targetConsoleMethods = ({}: {[string]: $FlowFixMe});
-    for (const method in targetConsole) {
-      // $FlowFixMe[invalid-computed-prop]
-      targetConsoleMethods[method] = console[method];
-    }
   }
 
   function detectReactBuildType(renderer: ReactRenderer) {
@@ -282,87 +295,7 @@ export function installHook(
     return [template, ...args];
   }
 
-  let unpatchFn = null;
-
-  // NOTE: KEEP IN SYNC with src/backend/console.js:patchForStrictMode
-  // This function hides or dims console logs during the initial double renderer
-  // in Strict Mode. We need this function because during initial render,
-  // React and DevTools are connecting and the renderer interface isn't avaiable
-  // and we want to be able to have consistent logging behavior for double logs
-  // during the initial renderer.
-  function patchConsoleForInitialCommitInStrictMode(
-    hideConsoleLogsInStrictMode: boolean,
-  ) {
-    const overrideConsoleMethods = [
-      'error',
-      'group',
-      'groupCollapsed',
-      'info',
-      'log',
-      'trace',
-      'warn',
-    ];
-
-    if (unpatchFn !== null) {
-      // Don't patch twice.
-      return;
-    }
-
-    const originalConsoleMethods: {[string]: $FlowFixMe} = {};
-
-    unpatchFn = () => {
-      for (const method in originalConsoleMethods) {
-        try {
-          targetConsole[method] = originalConsoleMethods[method];
-        } catch (error) {}
-      }
-    };
-
-    overrideConsoleMethods.forEach(method => {
-      try {
-        const originalMethod = (originalConsoleMethods[method] = targetConsole[
-          method
-        ].__REACT_DEVTOOLS_STRICT_MODE_ORIGINAL_METHOD__
-          ? targetConsole[method].__REACT_DEVTOOLS_STRICT_MODE_ORIGINAL_METHOD__
-          : targetConsole[method]);
-
-        const overrideMethod = (...args: $ReadOnlyArray<any>) => {
-          // Dim the text color of the double logs if we're not hiding them.
-          if (!hideConsoleLogsInStrictMode) {
-            // Firefox doesn't support ANSI escape sequences
-            if (__IS_FIREFOX__) {
-              originalMethod(
-                ...formatWithStyles(args, FIREFOX_CONSOLE_DIMMING_COLOR),
-              );
-            } else {
-              originalMethod(
-                ANSI_STYLE_DIMMING_TEMPLATE,
-                ...formatConsoleArguments(...args),
-              );
-            }
-          }
-        };
-
-        overrideMethod.__REACT_DEVTOOLS_STRICT_MODE_ORIGINAL_METHOD__ =
-          originalMethod;
-        originalMethod.__REACT_DEVTOOLS_STRICT_MODE_OVERRIDE_METHOD__ =
-          overrideMethod;
-
-        targetConsole[method] = overrideMethod;
-      } catch (error) {}
-    });
-  }
-
-  // NOTE: KEEP IN SYNC with src/backend/console.js:unpatchForStrictMode
-  function unpatchConsoleForInitialCommitInStrictMode() {
-    if (unpatchFn !== null) {
-      unpatchFn();
-      unpatchFn = null;
-    }
-  }
-
   let uidCounter = 0;
-
   function inject(renderer: ReactRenderer): number {
     const id = ++uidCounter;
     renderers.set(id, renderer);
@@ -371,31 +304,19 @@ export function installHook(
       ? 'deadcode'
       : detectReactBuildType(renderer);
 
-    // Patching the console enables DevTools to do a few useful things:
-    // * Append component stacks to warnings and error messages
-    // * Disabling or marking logs during a double render in Strict Mode
-    // * Disable logging during re-renders to inspect hooks (see inspectHooksOfFiber)
-    //
-    // Allow patching console early (during injection) to
-    // provide developers with components stacks even if they don't run DevTools.
-    if (target.hasOwnProperty('__REACT_DEVTOOLS_CONSOLE_FUNCTIONS__')) {
-      const {registerRendererWithConsole, patchConsoleUsingWindowValues} =
-        target.__REACT_DEVTOOLS_CONSOLE_FUNCTIONS__;
-      if (
-        typeof registerRendererWithConsole === 'function' &&
-        typeof patchConsoleUsingWindowValues === 'function'
-      ) {
-        registerRendererWithConsole(renderer);
-        patchConsoleUsingWindowValues();
-      }
-    }
-
     // If we have just reloaded to profile, we need to inject the renderer interface before the app loads.
     // Otherwise the renderer won't yet exist and we can skip this step.
     const attach = target.__REACT_DEVTOOLS_ATTACH__;
     if (typeof attach === 'function') {
       const rendererInterface = attach(hook, id, renderer, target);
       hook.rendererInterfaces.set(id, rendererInterface);
+    }
+
+    const version = renderer.reconcilerVersion || renderer.version;
+    if (version !== undefined) {
+      // React 16+
+      const workTagMap = getWorkTagMap(version);
+      hook.workTagMapByRendererId.set(id, workTagMap);
     }
 
     hook.emit('renderer', {
@@ -485,26 +406,70 @@ export function installHook(
     }
   }
 
-  function setStrictMode(rendererID: RendererID, isStrictMode: any) {
-    const rendererInterface = rendererInterfaces.get(rendererID);
-    if (rendererInterface != null) {
-      if (isStrictMode) {
-        rendererInterface.patchConsoleForStrictMode();
-      } else {
-        rendererInterface.unpatchConsoleForStrictMode();
-      }
-    } else {
-      // This should only happen during initial commit in the extension before DevTools
-      // finishes its handshake with the injected renderer
-      if (isStrictMode) {
-        const hideConsoleLogsInStrictMode =
-          window.__REACT_DEVTOOLS_HIDE_CONSOLE_LOGS_IN_STRICT_MODE__ === true;
+  let isRunningDuringStrictModeInvocation = false;
+  function setStrictMode(rendererID: RendererID, isStrictMode: boolean) {
+    isRunningDuringStrictModeInvocation = isStrictMode;
 
-        patchConsoleForInitialCommitInStrictMode(hideConsoleLogsInStrictMode);
-      } else {
-        unpatchConsoleForInitialCommitInStrictMode();
-      }
+    if (isStrictMode) {
+      patchConsoleForStrictMode();
+    } else {
+      unpatchConsoleForStrictMode();
     }
+  }
+
+  const unpatchConsoleCallbacks = [];
+  // For StrictMode we patch console once we are running in StrictMode and unpatch right after it
+  // So patching could happen multiple times during the runtime
+  // Notice how we don't patch error or warn methods, because they are already patched in patchConsoleForErrorsAndWarnings
+  // This will only happen once, when hook is installed
+  function patchConsoleForStrictMode() {
+    // Don't patch twice
+    if (unpatchConsoleCallbacks.length > 0) {
+      return;
+    }
+
+    // At this point 'error', 'warn', and 'trace' methods are already patched
+    // by React DevTools hook to append component stacks and other possible features.
+    const consoleMethodsToOverrideForStrictMode = [
+      'group',
+      'groupCollapsed',
+      'info',
+      'log',
+    ];
+
+    for (const method of consoleMethodsToOverrideForStrictMode) {
+      const originalMethod = targetConsole[method];
+      const overrideMethod: (...args: Array<any>) => void = (
+        ...args: any[]
+      ) => {
+        if (hook.settings.hideConsoleLogsInStrictMode) {
+          return;
+        }
+
+        // Dim the text color of the double logs if we're not hiding them.
+        // Firefox doesn't support ANSI escape sequences
+        if (__IS_FIREFOX__) {
+          originalMethod(
+            ...formatWithStyles(args, FIREFOX_CONSOLE_DIMMING_COLOR),
+          );
+        } else {
+          originalMethod(
+            ANSI_STYLE_DIMMING_TEMPLATE,
+            ...formatConsoleArguments(...args),
+          );
+        }
+      };
+
+      targetConsole[method] = overrideMethod;
+      unpatchConsoleCallbacks.push(() => {
+        targetConsole[method] = originalMethod;
+      });
+    }
+  }
+
+  function unpatchConsoleForStrictMode() {
+    unpatchConsoleCallbacks.forEach(callback => callback());
+    unpatchConsoleCallbacks.length = 0;
   }
 
   type StackFrameString = string;
@@ -541,18 +506,204 @@ export function installHook(
     }
   }
 
+  // For Errors and Warnings we only patch console once
+  function patchConsoleForErrorsAndWarnings() {
+    const consoleMethodsToOverrideForErrorsAndWarnings = [
+      'error',
+      'trace',
+      'warn',
+    ];
+
+    for (const method of consoleMethodsToOverrideForErrorsAndWarnings) {
+      const originalMethod = targetConsole[method];
+      const overrideMethod: (...args: Array<any>) => void = (...args) => {
+        if (
+          isRunningDuringStrictModeInvocation &&
+          hook.settings.hideConsoleLogsInStrictMode
+        ) {
+          return;
+        }
+
+        let injectedComponentStackAsFakeError = false;
+        let alreadyHasComponentStack = false;
+        if (method !== 'log' && hook.settings.appendComponentStack) {
+          const lastArg = args.length > 0 ? args[args.length - 1] : null;
+          alreadyHasComponentStack =
+            typeof lastArg === 'string' && isStringComponentStack(lastArg); // The last argument should be a component stack.
+        }
+
+        const shouldShowInlineWarningsAndErrors =
+          hook.settings.showInlineWarningsAndErrors &&
+          (method === 'error' || method === 'warn');
+
+        // Search for the first renderer that has a current Fiber.
+        // We don't handle the edge case of stacks for more than one (e.g. interleaved renderers?)
+        // eslint-disable-next-line no-for-of-loops/no-for-of-loops
+        for (const [rendererId, renderer] of hook.renderers.entries()) {
+          const currentDispatcherRef = getDispatcherRef(renderer);
+          const {getCurrentFiber} = renderer;
+          const current: ?Fiber =
+            typeof getCurrentFiber === 'function' ? getCurrentFiber() : null;
+          const workTagMap = hook.workTagMapByRendererId.get(rendererId);
+
+          if (!workTagMap) {
+            // React <16. Unsupported.
+            continue;
+          }
+
+          if (current != null) {
+            try {
+              if (shouldShowInlineWarningsAndErrors) {
+                const rendererInterface =
+                  hook.rendererInterfaces.get(rendererId);
+                // The backend is what implements a message queue, so it's the only one that injects onErrorOrWarning.
+                // This may not be available (not yet injected) by the time error is emitted
+                if (rendererInterface !== undefined) {
+                  rendererInterface.onErrorOrWarning(
+                    current,
+                    ((method: any): 'error' | 'warn'),
+                    args.slice(),
+                  );
+                }
+              }
+
+              if (
+                hook.settings.appendComponentStack &&
+                !supportsConsoleTasks(current)
+              ) {
+                const enableOwnerStacks = supportsOwnerStacks(current);
+                let componentStack = '';
+                if (enableOwnerStacks) {
+                  // Prefix the owner stack with the current stack. I.e. what called
+                  // console.error. While this will also be part of the native stack,
+                  // it is hidden and not presented alongside this argument so we print
+                  // them all together.
+                  const topStackFrames = formatOwnerStack(
+                    new Error('react-stack-top-frame'),
+                  );
+                  if (topStackFrames) {
+                    componentStack += '\n' + topStackFrames;
+                  }
+                  componentStack += getOwnerStackByFiberInDev(
+                    workTagMap,
+                    current,
+                    (currentDispatcherRef: any),
+                  );
+                } else {
+                  componentStack = getStackByFiberInDevAndProd(
+                    workTagMap,
+                    current,
+                    (currentDispatcherRef: any),
+                  );
+                }
+                if (componentStack !== '') {
+                  // Create a fake Error so that when we print it we get native source maps. Every
+                  // browser will print the .stack property of the error and then parse it back for source
+                  // mapping. Rather than print the internal slot. So it doesn't matter that the internal
+                  // slot doesn't line up.
+                  const fakeError = new Error('');
+                  // In Chromium, only the stack property is printed but in Firefox the <name>:<message>
+                  // gets printed so to make the colon make sense, we name it so we print Component Stack:
+                  // and similarly Safari leave an expandable slot.
+                  fakeError.name = enableOwnerStacks
+                    ? 'Stack'
+                    : 'Component Stack'; // This gets printed
+                  // In Chromium, the stack property needs to start with ^[\w.]*Error\b to trigger stack
+                  // formatting. Otherwise it is left alone. So we prefix it. Otherwise we just override it
+                  // to our own stack.
+                  fakeError.stack =
+                    __IS_CHROME__ || __IS_EDGE__
+                      ? (enableOwnerStacks
+                          ? 'Error Stack:'
+                          : 'Error Component Stack:') + componentStack
+                      : componentStack;
+                  if (alreadyHasComponentStack) {
+                    // Only modify the component stack if it matches what we would've added anyway.
+                    // Otherwise we assume it was a non-React stack.
+                    if (
+                      areStackTracesEqual(args[args.length - 1], componentStack)
+                    ) {
+                      const firstArg = args[0];
+                      if (
+                        args.length > 1 &&
+                        typeof firstArg === 'string' &&
+                        firstArg.endsWith('%s')
+                      ) {
+                        args[0] = firstArg.slice(0, firstArg.length - 2); // Strip the %s param
+                      }
+                      args[args.length - 1] = fakeError;
+                      injectedComponentStackAsFakeError = true;
+                    }
+                  } else {
+                    args.push(fakeError);
+                    injectedComponentStackAsFakeError = true;
+                  }
+                }
+              }
+            } catch (error) {
+              // Don't let a DevTools or React internal error interfere with logging.
+              setTimeout(() => {
+                throw error;
+              }, 0);
+            } finally {
+              break;
+            }
+          }
+        }
+
+        if (hook.settings.breakOnConsoleErrors) {
+          // --- Welcome to debugging with React DevTools ---
+          // This debugger statement means that you've enabled the "break on warnings" feature.
+          // Use the browser's Call Stack panel to step out of this override function
+          // to where the original warning or error was logged.
+          // eslint-disable-next-line no-debugger
+          debugger;
+        }
+
+        if (isRunningDuringStrictModeInvocation) {
+          // Dim the text color of the double logs if we're not hiding them.
+          // Firefox doesn't support ANSI escape sequences
+          if (__IS_FIREFOX__) {
+            const argsWithCSSStyles = formatWithStyles(
+              args,
+              FIREFOX_CONSOLE_DIMMING_COLOR,
+            );
+
+            if (injectedComponentStackAsFakeError) {
+              argsWithCSSStyles[0] = `${argsWithCSSStyles[0]} %o`;
+            }
+
+            originalMethod(...argsWithCSSStyles);
+          } else {
+            originalMethod(
+              injectedComponentStackAsFakeError
+                ? ANSI_STYLE_DIMMING_TEMPLATE_WITH_COMPONENT_STACK
+                : ANSI_STYLE_DIMMING_TEMPLATE,
+              ...formatConsoleArguments(...args),
+            );
+          }
+        } else {
+          originalMethod(...args);
+        }
+      };
+
+      targetConsole[method] = overrideMethod;
+    }
+  }
+
   // TODO: More meaningful names for "rendererInterfaces" and "renderers".
   const fiberRoots: {[RendererID]: Set<mixed>} = {};
   const rendererInterfaces = new Map<RendererID, RendererInterface>();
   const listeners: {[string]: Array<Handler>} = {};
   const renderers = new Map<RendererID, ReactRenderer>();
+  const workTagMapByRendererId = new Map<RendererID, WorkTagMap>();
   const backends = new Map<string, DevToolsBackend>();
   const settings = injectedSettings
     ? injectedSettings
     : {
         appendComponentStack: true,
         breakOnConsoleErrors: false,
-        showInlineWarningsAndErrors: true,
+        showInlineWarningsAndErrors: false,
         hideConsoleLogsInStrictMode: false,
       };
 
@@ -591,12 +742,10 @@ export function installHook(
     registerInternalModuleStop,
 
     settings,
+    workTagMapByRendererId,
   };
 
-  if (__TEST__) {
-    hook.dangerous_setTargetConsoleForTesting =
-      dangerous_setTargetConsoleForTesting;
-  }
+  patchConsoleForErrorsAndWarnings();
 
   Object.defineProperty(
     target,
