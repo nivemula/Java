@@ -20,17 +20,13 @@ import {
 import {
   LOCAL_STORAGE_BROWSER_THEME,
   LOCAL_STORAGE_PARSE_HOOK_NAMES_KEY,
-  LOCAL_STORAGE_SHOULD_BREAK_ON_CONSOLE_ERRORS,
-  LOCAL_STORAGE_SHOULD_APPEND_COMPONENT_STACK_KEY,
   LOCAL_STORAGE_TRACE_UPDATES_ENABLED_KEY,
-  LOCAL_STORAGE_SHOW_INLINE_WARNINGS_AND_ERRORS_KEY,
-  LOCAL_STORAGE_HIDE_CONSOLE_LOGS_IN_STRICT_MODE,
 } from 'react-devtools-shared/src/constants';
 import {
   COMFORTABLE_LINE_HEIGHT,
   COMPACT_LINE_HEIGHT,
 } from 'react-devtools-shared/src/devtools/constants';
-import {useLocalStorage} from '../hooks';
+import {useDevToolsHookSettings, useLocalStorage} from '../hooks';
 import {BridgeContext} from '../context';
 import {logEvent} from 'react-devtools-shared/src/Logger';
 
@@ -118,35 +114,26 @@ function SettingsContextController({
     LOCAL_STORAGE_BROWSER_THEME,
     'auto',
   );
-  const [appendComponentStack, setAppendComponentStack] =
-    useLocalStorageWithLog<boolean>(
-      LOCAL_STORAGE_SHOULD_APPEND_COMPONENT_STACK_KEY,
-      true,
-    );
-  const [breakOnConsoleErrors, setBreakOnConsoleErrors] =
-    useLocalStorageWithLog<boolean>(
-      LOCAL_STORAGE_SHOULD_BREAK_ON_CONSOLE_ERRORS,
-      false,
-    );
   const [parseHookNames, setParseHookNames] = useLocalStorageWithLog<boolean>(
     LOCAL_STORAGE_PARSE_HOOK_NAMES_KEY,
     false,
   );
-  const [hideConsoleLogsInStrictMode, setHideConsoleLogsInStrictMode] =
-    useLocalStorageWithLog<boolean>(
-      LOCAL_STORAGE_HIDE_CONSOLE_LOGS_IN_STRICT_MODE,
-      false,
-    );
-  const [showInlineWarningsAndErrors, setShowInlineWarningsAndErrors] =
-    useLocalStorageWithLog<boolean>(
-      LOCAL_STORAGE_SHOW_INLINE_WARNINGS_AND_ERRORS_KEY,
-      true,
-    );
   const [traceUpdatesEnabled, setTraceUpdatesEnabled] =
     useLocalStorageWithLog<boolean>(
       LOCAL_STORAGE_TRACE_UPDATES_ENABLED_KEY,
       false,
     );
+
+  const {
+    appendComponentStack,
+    setAppendComponentStack,
+    breakOnConsoleErrors,
+    setBreakOnConsoleErrors,
+    hideConsoleLogsInStrictMode,
+    setHideConsoleLogsInStrictMode,
+    showInlineWarningsAndErrors,
+    setShowInlineWarningsAndErrors,
+  } = useDevToolsHookSettings(bridge);
 
   const documentElements = useMemo<DocumentElements>(() => {
     const array: Array<HTMLElement> = [

@@ -151,6 +151,7 @@ export default class Agent extends EventEmitter<{
   drawTraceUpdates: [Array<HostInstance>],
   disableTraceUpdates: [],
   updateHookSettings: [DevToolsHookSettings],
+  fetchHookSettings: [],
 }> {
   _bridge: BackendBridge;
   _isProfiling: boolean = false;
@@ -214,10 +215,13 @@ export default class Agent extends EventEmitter<{
       this.syncSelectionFromBuiltinElementsPanel,
     );
     bridge.addListener('shutdown', this.shutdown);
+
     bridge.addListener(
       'updateConsolePatchSettings',
       this.updateConsolePatchSettings,
     );
+    bridge.addListener('fetchHookSettings', this.fetchHookSettings);
+
     bridge.addListener('updateComponentFilters', this.updateComponentFilters);
     bridge.addListener('viewAttributeSource', this.viewAttributeSource);
     bridge.addListener('viewElementSource', this.viewElementSource);
@@ -771,6 +775,15 @@ export default class Agent extends EventEmitter<{
       hideConsoleLogsInStrictMode: settings.hideConsoleLogsInStrictMode,
     });
   };
+
+  fetchHookSettings: () => void = () => {
+    this.emit('fetchHookSettings');
+  };
+
+  onHookSettings: (settings: $ReadOnly<ConsolePatchSettings>) => void =
+    settings => {
+      this._bridge.send('hookSettings', settings);
+    };
 
   updateComponentFilters: (componentFilters: Array<ComponentFilter>) => void =
     componentFilters => {

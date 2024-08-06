@@ -22,6 +22,8 @@ import {
 } from 'react-devtools-shared/src/storage';
 import {StoreContext, BridgeContext} from './context';
 import {sanitizeForParse, smartParse, smartStringify} from '../utils';
+import type {FrontendBridge} from '../../bridge';
+import type {DevToolsHookSettings} from 'react-devtools-shared/src/backend/types';
 
 type ACTION_RESET = {
   type: 'RESET',
@@ -207,6 +209,57 @@ export function useLocalStorage<T>(
   }, [getValueFromLocalStorage, key, storedValue, setValue]);
 
   return [storedValue, setValue];
+}
+
+type DevToolsHookSettingsGettersAndSetters = {
+  appendComponentStack: boolean,
+  setAppendComponentStack: boolean => void,
+  breakOnConsoleErrors: boolean,
+  setBreakOnConsoleErrors: boolean => void,
+  hideConsoleLogsInStrictMode: boolean,
+  setHideConsoleLogsInStrictMode: boolean => void,
+  showInlineWarningsAndErrors: boolean,
+  setShowInlineWarningsAndErrors: boolean => void,
+};
+
+export function useDevToolsHookSettings(
+  bridge: FrontendBridge,
+): DevToolsHookSettingsGettersAndSetters {
+  const [appendComponentStack, setAppendComponentStack] = useState(true);
+  const [breakOnConsoleErrors, setBreakOnConsoleErrors] = useState(false);
+  const [hideConsoleLogsInStrictMode, setHideConsoleLogsInStrictMode] =
+    useState(false);
+  const [showInlineWarningsAndErrors, setShowInlineWarningsAndErrors] =
+    useState(false);
+
+  const onHookSettings = useCallback(
+    (settings: $ReadOnly<DevToolsHookSettings>) => {
+      setAppendComponentStack(settings.appendComponentStack);
+      setBreakOnConsoleErrors(settings.breakOnConsoleErrors);
+      setHideConsoleLogsInStrictMode(settings.hideConsoleLogsInStrictMode);
+      setShowInlineWarningsAndErrors(settings.showInlineWarningsAndErrors);
+    },
+    [],
+  );
+  useEffect(() => {
+    bridge.addListener('hookSettings', onHookSettings);
+    bridge.send('fetchHookSettings');
+
+    return () => {
+      bridge.removeListener('hookSettings', onHookSettings);
+    };
+  }, [bridge, onHookSettings]);
+
+  return {
+    appendComponentStack,
+    setAppendComponentStack,
+    breakOnConsoleErrors,
+    setBreakOnConsoleErrors,
+    hideConsoleLogsInStrictMode,
+    setHideConsoleLogsInStrictMode,
+    showInlineWarningsAndErrors,
+    setShowInlineWarningsAndErrors,
+  };
 }
 
 export function useModalDismissSignal(

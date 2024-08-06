@@ -133,6 +133,9 @@ export function initBackend(
   agent.addListener('updateHookSettings', settings => {
     hook.settings = settings;
   });
+  agent.addListener('fetchHookSettings', () => {
+    agent.onHookSettings(hook.settings);
+  });
 
   return () => {
     subs.forEach(fn => fn());
