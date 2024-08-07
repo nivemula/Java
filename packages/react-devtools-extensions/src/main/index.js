@@ -25,7 +25,6 @@ import {startReactPolling} from './reactPolling';
 import cloneStyleTags from './cloneStyleTags';
 import fetchFileWithCaching from './fetchFileWithCaching';
 import injectBackendManager from './injectBackendManager';
-import syncSavedPreferences from './syncSavedPreferences';
 import registerEventsLogger from './registerEventsLogger';
 import getProfilingFlags from './getProfilingFlags';
 import debounce from './debounce';
@@ -61,6 +60,10 @@ function createBridge() {
     'syncSelectionToBuiltinElementsPanel',
     setBrowserSelectionFromReact,
   );
+
+  bridge.addListener('updateHookSettings', settings => {
+    chrome.storage.local.set(settings);
+  });
 
   bridge.addListener('extensionBackendInitialized', () => {
     // Initialize the renderer's trace-updates setting.
@@ -403,10 +406,6 @@ let root = null;
 
 let port = null;
 
-// Re-initialize saved filters on navigation,
-// since global values stored on window get reset in this case.
-chrome.devtools.network.onNavigated.addListener(syncSavedPreferences);
-
 // In case when multiple navigation events emitted in a short period of time
 // This debounced callback primarily used to avoid mounting React DevTools multiple times, which results
 // into subscribing to the same events from Bridge and window multiple times
@@ -436,5 +435,4 @@ if (__IS_FIREFOX__) {
 
 connectExtensionPort();
 
-syncSavedPreferences();
 mountReactDevToolsWhenReactHasLoaded();

@@ -768,12 +768,7 @@ export default class Agent extends EventEmitter<{
     settings: $ReadOnly<ConsolePatchSettings>,
   ) => void = settings => {
     // Propagate the settings, so Backend can subscribe to it and modify hook
-    this.emit('updateHookSettings', {
-      appendComponentStack: settings.appendComponentStack,
-      breakOnConsoleErrors: settings.breakOnConsoleErrors,
-      showInlineWarningsAndErrors: settings.showInlineWarningsAndErrors,
-      hideConsoleLogsInStrictMode: settings.hideConsoleLogsInStrictMode,
-    });
+    this.emit('updateHookSettings', settings);
   };
 
   fetchHookSettings: () => void = () => {

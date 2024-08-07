@@ -43,7 +43,8 @@
     "https://*/*",
     "clipboardWrite",
     "scripting",
-    "devtools"
+    "devtools",
+    "storage"
   ],
   "content_scripts": [
     {

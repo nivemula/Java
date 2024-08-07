@@ -18,6 +18,13 @@ const contentScriptsToInject = __IS_FIREFOX__
         persistAcrossSessions: true,
         runAt: 'document_end',
       },
+      {
+        id: '@react-devtools/inject-hook-settings',
+        js: ['build/hookSettingsInjector.js'],
+        matches: ['<all_urls>'],
+        persistAcrossSessions: true,
+        runAt: 'document_start',
+      },
     ]
   : [
       {
@@ -34,6 +41,14 @@ const contentScriptsToInject = __IS_FIREFOX__
         matches: ['<all_urls>'],
         persistAcrossSessions: true,
         runAt: 'document_end',
+        world: chrome.scripting.ExecutionWorld.ISOLATED,
+      },
+      {
+        id: '@react-devtools/inject-hook-settings',
+        js: ['build/hookSettingsInjector.js'],
+        matches: ['<all_urls>'],
+        persistAcrossSessions: true,
+        runAt: 'document_start',
         world: chrome.scripting.ExecutionWorld.ISOLATED,
       },
       {
