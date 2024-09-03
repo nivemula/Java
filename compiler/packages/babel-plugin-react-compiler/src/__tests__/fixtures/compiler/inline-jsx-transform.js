@@ -30,6 +30,11 @@ function ParentAndChildren(props) {
   )
 }
 
+const propsToSpread = {a: 'a', b: 'b', c: 'c'};
+function PropsSpread() {
+  return <Test {...propsToSpread} />
+}
+
 export const FIXTURE_ENTRYPOINT = {
   fn: ParentAndChildren,
   params: [{foo: 'abc'}],

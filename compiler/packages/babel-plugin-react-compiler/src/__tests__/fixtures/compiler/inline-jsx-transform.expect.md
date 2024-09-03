@@ -34,6 +34,11 @@ function ParentAndChildren(props) {
   )
 }
 
+const propsToSpread = {a: 'a', b: 'b', c: 'c'};
+function PropsSpread() {
+  return <Test {...propsToSpread} />
+}
+
 export const FIXTURE_ENTRYPOINT = {
   fn: ParentAndChildren,
   params: [{foo: 'abc'}],
@@ -190,6 +195,25 @@ function ParentAndChildren(props) {
     t2 = $[3];
   }
   return t2;
+}
+
+const propsToSpread = { a: "a", b: "b", c: "c" };
+function PropsSpread() {
+  const $ = _c2(1);
+  let t0;
+  if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
+    t0 = {
+      $$typeof: Symbol.for("react.transitional.element"),
+      type: Test,
+      ref: null,
+      key: null,
+      props: { ...propsToSpread },
+    };
+    $[0] = t0;
+  } else {
+    t0 = $[0];
+  }
+  return t0;
 }
 
 export const FIXTURE_ENTRYPOINT = {

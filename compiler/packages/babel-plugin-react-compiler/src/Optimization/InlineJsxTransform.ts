@@ -14,6 +14,7 @@ import {
   makeInstructionId,
   ObjectProperty,
   Place,
+  SpreadPattern,
 } from '../HIR';
 import {
   createTemporaryPlace,
@@ -146,7 +147,7 @@ function createPropsProperties(
 } {
   let refProperty: ObjectProperty | undefined;
   let keyProperty: ObjectProperty | undefined;
-  const props: Array<ObjectProperty> = [];
+  const props: Array<ObjectProperty | SpreadPattern> = [];
   propAttributes.forEach(prop => {
     switch (prop.kind) {
       case 'JsxAttribute':
@@ -175,7 +176,12 @@ function createPropsProperties(
         }
         break;
       case 'JsxSpreadAttribute':
-        // TODO
+        // TODO: Optimize spreads to pass object directly
+        // if none of its properties are mutated
+        props.push({
+          kind: 'Spread',
+          place: {...prop.argument},
+        });
         break;
     }
   });
@@ -363,7 +369,6 @@ export function inlineJsxTransform(fn: HIRFunction): void {
     }
   }
   /**
-   * Step 4:
    * Fixup the HIR to restore RPO, ensure correct predecessors, and
    * renumber instructions. Note that the renumbering instructions
    * invalidates scope and identifier ranges, so we fix them in the
@@ -374,7 +379,6 @@ export function inlineJsxTransform(fn: HIRFunction): void {
   markInstructionIds(fn.body);
 
   /**
-   * Step 5:
    * Fix scope and identifier ranges to account for renumbered instructions
    */
   for (const [, block] of fn.body.blocks) {
