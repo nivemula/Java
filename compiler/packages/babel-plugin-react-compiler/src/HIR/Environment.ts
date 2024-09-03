@@ -235,7 +235,7 @@ const EnvironmentConfigSchema = z.object({
   /**
    * Enables inlining ReactElement object literals in place of JSX
    * An alternative to the standard JSX transform which replaces JSX with React's jsxProd() runtime
-   * Currently a prod-only optimizaiton, requiring Fast JSX features from React 19
+   * Currently a prod-only optimization, requiring Fast JSX dependencies
    */
   enableInlineJsxTransform: z.boolean().default(false),
 
