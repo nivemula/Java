@@ -60,15 +60,13 @@ function SimpleCustomComponent(props) {
 function SpecialProps(props) {
   const $ = _c(1);
   const testRef = useRef();
-  ("testKey");
-  testRef;
   let t0;
   if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
     t0 = {
       $$typeof: Symbol.for("react.element"),
       type: "div",
-      ref: null,
-      key: null,
+      ref: testRef,
+      key: "testKey",
       props: {},
     };
     $[0] = t0;

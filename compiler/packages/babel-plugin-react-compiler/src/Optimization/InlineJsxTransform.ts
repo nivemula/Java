@@ -131,13 +131,23 @@ export function inlineJsxTransform(fn: HIRFunction): void {
           }
 
           let refProperty: ObjectProperty | undefined;
+          let keyProperty: ObjectProperty | undefined;
           instr.value.props.forEach(prop => {
             switch (prop.kind) {
               case 'JsxAttribute':
                 if (prop.name === 'ref') {
                   refProperty = {
                     kind: 'ObjectProperty',
-                    key: {name: 'type', kind: 'string'},
+                    key: {name: 'ref', kind: 'string'},
+                    type: 'property',
+                    place: {...prop.place},
+                  };
+                }
+
+                if (prop.name === 'key') {
+                  keyProperty = {
+                    kind: 'ObjectProperty',
+                    key: {name: 'key', kind: 'string'},
                     type: 'property',
                     place: {...prop.place},
                   };
@@ -171,27 +181,29 @@ export function inlineJsxTransform(fn: HIRFunction): void {
             nextInstructions.push(refInstruction);
           }
 
-          const keyPropertyPlace = createTemporaryPlace(
-            fn.env,
-            instr.value.loc,
-          );
-          const keyInstruction: Instruction = {
-            id: makeInstructionId(0),
-            lvalue: {...keyPropertyPlace, effect: Effect.Mutate},
-            value: {
-              kind: 'Primitive',
-              value: null,
-              loc: instr.value.loc,
-            },
-            loc: instr.loc,
-          };
-          const keyProperty: ObjectProperty = {
-            kind: 'ObjectProperty',
-            key: {name: 'key', kind: 'string'},
-            type: 'property',
-            place: {...keyPropertyPlace, effect: Effect.Capture},
-          };
-          nextInstructions.push(keyInstruction);
+          if (keyProperty == null) {
+            const keyPropertyPlace = createTemporaryPlace(
+              fn.env,
+              instr.value.loc,
+            );
+            const keyInstruction: Instruction = {
+              id: makeInstructionId(0),
+              lvalue: {...keyPropertyPlace, effect: Effect.Mutate},
+              value: {
+                kind: 'Primitive',
+                value: null,
+                loc: instr.value.loc,
+              },
+              loc: instr.loc,
+            };
+            keyProperty = {
+              kind: 'ObjectProperty',
+              key: {name: 'key', kind: 'string'},
+              type: 'property',
+              place: {...keyPropertyPlace, effect: Effect.Capture},
+            };
+            nextInstructions.push(keyInstruction);
+          }
 
           const propsPropertyPlace = createTemporaryPlace(
             fn.env,
