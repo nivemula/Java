@@ -163,6 +163,36 @@ export function inlineJsxTransform(fn: HIRFunction): void {
                 break;
             }
           });
+          const propsPropertyPlace = createTemporaryPlace(
+            fn.env,
+            instr.value.loc,
+          );
+          if (instr.value.children) {
+            instr.value.children.forEach(child => {});
+            const childrenPropPropertyPlace = createTemporaryPlace(
+              fn.env,
+              instr.value.loc,
+            );
+            const childrenPropInstruction: Instruction = {
+              id: makeInstructionId(0),
+              lvalue: {...childrenPropPropertyPlace, effect: Effect.Mutate},
+              value: {
+                kind: 'ArrayExpression',
+                elements: [...instr.value.children],
+                loc: instr.value.loc,
+              },
+              loc: instr.loc,
+            };
+            nextInstructions.push(childrenPropInstruction);
+            const childrenPropProperty: ObjectProperty = {
+              kind: 'ObjectProperty',
+              key: {name: 'children', kind: 'string'},
+              type: 'property',
+              place: {...childrenPropPropertyPlace, effect: Effect.Capture},
+            };
+            props.push(childrenPropProperty);
+          }
+
           if (refProperty == null) {
             const refPropertyPlace = createTemporaryPlace(
               fn.env,
@@ -211,10 +241,6 @@ export function inlineJsxTransform(fn: HIRFunction): void {
             nextInstructions.push(keyInstruction);
           }
 
-          const propsPropertyPlace = createTemporaryPlace(
-            fn.env,
-            instr.value.loc,
-          );
           const propsInstruction: Instruction = {
             id: makeInstructionId(0),
             lvalue: {...propsPropertyPlace, effect: Effect.Mutate},
