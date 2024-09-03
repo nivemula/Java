@@ -5,13 +5,13 @@ function Parent({children, a: _a, b: _b, c: _c, ref}) {
 }
 
 function Child({children}) {
-  return <div>{children}</div>
+  return <>{children}</>
 }
 
 function GrandChild({
   className
 }) {
-  return <span className={className}>Hello world</span>;
+  return <span className={className}><React.Fragment key='fragmentKey'>Hello world</React.Fragment></span>;
 }
 
 function ParentAndRefAndKey(props) {

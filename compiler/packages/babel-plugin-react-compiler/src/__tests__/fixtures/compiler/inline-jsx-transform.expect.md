@@ -9,13 +9,13 @@ function Parent({children, a: _a, b: _b, c: _c, ref}) {
 }
 
 function Child({children}) {
-  return <div>{children}</div>
+  return <>{children}</>
 }
 
 function GrandChild({
   className
 }) {
-  return <span className={className}>Hello world</span>;
+  return <span className={className}><React.Fragment key='fragmentKey'>Hello world</React.Fragment></span>;
 }
 
 function ParentAndRefAndKey(props) {
@@ -72,7 +72,7 @@ function Child(t0) {
   if ($[0] !== children) {
     t1 = {
       $$typeof: Symbol.for("react.transitional.element"),
-      type: "div",
+      type: Symbol.for("react.fragment"),
       ref: null,
       key: null,
       props: { children: [children] },
@@ -86,23 +86,36 @@ function Child(t0) {
 }
 
 function GrandChild(t0) {
-  const $ = _c2(2);
+  const $ = _c2(3);
   const { className } = t0;
   let t1;
-  if ($[0] !== className) {
+  if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
     t1 = {
+      $$typeof: Symbol.for("react.transitional.element"),
+      type: React.Fragment,
+      ref: null,
+      key: "fragmentKey",
+      props: { children: ["Hello world"] },
+    };
+    $[0] = t1;
+  } else {
+    t1 = $[0];
+  }
+  let t2;
+  if ($[1] !== className) {
+    t2 = {
       $$typeof: Symbol.for("react.transitional.element"),
       type: "span",
       ref: null,
       key: null,
-      props: { className: className, children: ["Hello world"] },
+      props: { className: className, children: [t1] },
     };
-    $[0] = className;
-    $[1] = t1;
+    $[1] = className;
+    $[2] = t2;
   } else {
-    t1 = $[1];
+    t2 = $[2];
   }
-  return t1;
+  return t2;
 }
 
 function ParentAndRefAndKey(props) {
@@ -187,4 +200,4 @@ export const FIXTURE_ENTRYPOINT = {
 ```
       
 ### Eval output
-(kind: ok) <div><div></div><div><span class="gc-1">Hello world</span></div></div>
+(kind: ok) <div><span class="gc-1">Hello world</span></div>

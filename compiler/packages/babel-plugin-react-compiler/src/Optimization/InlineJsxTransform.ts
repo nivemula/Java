@@ -22,10 +22,11 @@ import {
   reversePostorderBlocks,
 } from '../HIR/HIRBuilder';
 
-function create$$typeofProperty(
+function createSymbolProperty(
   fn: HIRFunction,
   instr: Instruction,
   nextInstructions: Array<Instruction>,
+  propertyName: string,
   symbolName: string,
 ): ObjectProperty {
   const symbolPlace = createTemporaryPlace(fn.env, instr.value.loc);
@@ -83,7 +84,7 @@ function create$$typeofProperty(
   };
   const $$typeofProperty: ObjectProperty = {
     kind: 'ObjectProperty',
-    key: {name: '$$typeof', kind: 'string'},
+    key: {name: propertyName, kind: 'string'},
     type: 'property',
     place: {...$$typeofPlace, effect: Effect.Capture},
   };
@@ -289,10 +290,11 @@ export function inlineJsxTransform(fn: HIRFunction): void {
             value: {
               kind: 'ObjectExpression',
               properties: [
-                create$$typeofProperty(
+                createSymbolProperty(
                   fn,
                   instr,
                   nextInstructions,
+                  '$$typeof',
                   'react.transitional.element',
                 ),
                 createTagProperty(fn, instr, nextInstructions, instr.value.tag),
@@ -309,8 +311,44 @@ export function inlineJsxTransform(fn: HIRFunction): void {
           break;
         }
         case 'JsxFragment': {
-          // TODO
-          // nextInstructions ??= block.instructions.slice(0, i);
+          nextInstructions ??= block.instructions.slice(0, i);
+          const {refProperty, keyProperty, propsProperty} =
+            createPropsProperties(
+              fn,
+              instr,
+              nextInstructions,
+              [],
+              instr.value.children,
+            );
+          const reactElementInstruction: Instruction = {
+            id: makeInstructionId(0),
+            lvalue: {...instr.lvalue, effect: Effect.Store},
+            value: {
+              kind: 'ObjectExpression',
+              properties: [
+                createSymbolProperty(
+                  fn,
+                  instr,
+                  nextInstructions,
+                  '$$typeof',
+                  'react.transitional.element',
+                ),
+                createSymbolProperty(
+                  fn,
+                  instr,
+                  nextInstructions,
+                  'type',
+                  'react.fragment',
+                ),
+                refProperty,
+                keyProperty,
+                propsProperty,
+              ],
+              loc: instr.value.loc,
+            },
+            loc: instr.loc,
+          };
+          nextInstructions.push(reactElementInstruction);
           break;
         }
         default: {
