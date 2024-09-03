@@ -7,14 +7,12 @@
 
 import {
   Effect,
-  GeneratedSource,
   HIRFunction,
   Instruction,
   makeInstructionId,
   ObjectProperty,
 } from '../HIR';
 import {
-  clonePlaceToTemporary,
   createTemporaryPlace,
   markInstructionIds,
   markPredecessors,
@@ -132,6 +130,7 @@ export function inlineJsxTransform(fn: HIRFunction): void {
 
           let refProperty: ObjectProperty | undefined;
           let keyProperty: ObjectProperty | undefined;
+          const props: Array<ObjectProperty> = [];
           instr.value.props.forEach(prop => {
             switch (prop.kind) {
               case 'JsxAttribute':
@@ -142,18 +141,25 @@ export function inlineJsxTransform(fn: HIRFunction): void {
                     type: 'property',
                     place: {...prop.place},
                   };
-                }
-
-                if (prop.name === 'key') {
+                } else if (prop.name === 'key') {
                   keyProperty = {
                     kind: 'ObjectProperty',
                     key: {name: 'key', kind: 'string'},
                     type: 'property',
                     place: {...prop.place},
                   };
+                } else {
+                  const attributeProperty: ObjectProperty = {
+                    kind: 'ObjectProperty',
+                    key: {name: prop.name, kind: 'string'},
+                    type: 'property',
+                    place: {...prop.place},
+                  };
+                  props.push(attributeProperty);
                 }
                 break;
               case 'JsxSpreadAttribute':
+                // TODO
                 break;
             }
           });
@@ -214,7 +220,7 @@ export function inlineJsxTransform(fn: HIRFunction): void {
             lvalue: {...propsPropertyPlace, effect: Effect.Mutate},
             value: {
               kind: 'ObjectExpression',
-              properties: [],
+              properties: props,
               loc: instr.value.loc,
             },
             loc: instr.loc,
@@ -249,6 +255,7 @@ export function inlineJsxTransform(fn: HIRFunction): void {
           break;
         }
         case 'JsxFragment': {
+          // TODO
           // nextInstructions ??= block.instructions.slice(0, i);
           // similar to above
           // don't emit the `instr`, create new instructions and push to nextInstructions

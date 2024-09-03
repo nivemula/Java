@@ -15,6 +15,10 @@ function SpecialProps(props) {
   const testRef = useRef();
   return <div key={'testKey'} ref={testRef} />
 }
+
+function CustomProps(props) {
+  return <Component a='a' b={{b: 'b'}} c={C} />
+}
 ```
 
 ## Code
@@ -68,6 +72,24 @@ function SpecialProps(props) {
       ref: testRef,
       key: "testKey",
       props: {},
+    };
+    $[0] = t0;
+  } else {
+    t0 = $[0];
+  }
+  return t0;
+}
+
+function CustomProps(props) {
+  const $ = _c(1);
+  let t0;
+  if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
+    t0 = {
+      $$typeof: Symbol.for("react.element"),
+      type: Component,
+      ref: null,
+      key: null,
+      props: { a: "a", b: { b: "b" }, c: C },
     };
     $[0] = t0;
   } else {
