@@ -6,11 +6,14 @@
  */
 
 import {
+  BuiltinTag,
   Effect,
   HIRFunction,
   Instruction,
+  JsxAttribute,
   makeInstructionId,
   ObjectProperty,
+  Place,
 } from '../HIR';
 import {
   createTemporaryPlace,
@@ -18,6 +21,250 @@ import {
   markPredecessors,
   reversePostorderBlocks,
 } from '../HIR/HIRBuilder';
+
+function create$$typeofProperty(
+  fn: HIRFunction,
+  instr: Instruction,
+  nextInstructions: Array<Instruction>,
+  symbolName: string,
+): ObjectProperty {
+  const symbolPlace = createTemporaryPlace(fn.env, instr.value.loc);
+  const symbolInstruction: Instruction = {
+    id: makeInstructionId(0),
+    lvalue: {...symbolPlace, effect: Effect.Mutate},
+    value: {
+      kind: 'LoadGlobal',
+      binding: {kind: 'Global', name: 'Symbol'},
+      loc: instr.value.loc,
+    },
+    loc: instr.loc,
+  };
+  nextInstructions.push(symbolInstruction);
+
+  const symbolForPlace = createTemporaryPlace(fn.env, instr.value.loc);
+  const symbolForInstruction: Instruction = {
+    id: makeInstructionId(0),
+    lvalue: {...symbolForPlace, effect: Effect.Read},
+    value: {
+      kind: 'PropertyLoad',
+      object: symbolInstruction.lvalue,
+      property: 'for',
+      loc: instr.value.loc,
+    },
+    loc: instr.loc,
+  };
+  nextInstructions.push(symbolForInstruction);
+
+  const symbolValuePlace = createTemporaryPlace(fn.env, instr.value.loc);
+  const symbolValueInstruction: Instruction = {
+    id: makeInstructionId(0),
+    lvalue: {...symbolValuePlace, effect: Effect.Mutate},
+    value: {
+      kind: 'Primitive',
+      value: symbolName,
+      loc: instr.value.loc,
+    },
+    loc: instr.loc,
+  };
+  nextInstructions.push(symbolValueInstruction);
+
+  const $$typeofPlace = createTemporaryPlace(fn.env, instr.value.loc);
+  const $$typeofInstruction: Instruction = {
+    id: makeInstructionId(0),
+    lvalue: {...$$typeofPlace, effect: Effect.Mutate},
+    value: {
+      kind: 'MethodCall',
+      receiver: symbolInstruction.lvalue,
+      property: symbolForInstruction.lvalue,
+      args: [symbolValueInstruction.lvalue],
+      loc: instr.value.loc,
+    },
+    loc: instr.loc,
+  };
+  const $$typeofProperty: ObjectProperty = {
+    kind: 'ObjectProperty',
+    key: {name: '$$typeof', kind: 'string'},
+    type: 'property',
+    place: {...$$typeofPlace, effect: Effect.Capture},
+  };
+  nextInstructions.push($$typeofInstruction);
+  return $$typeofProperty;
+}
+
+function createTagProperty(
+  fn: HIRFunction,
+  instr: Instruction,
+  nextInstructions: Array<Instruction>,
+  componentTag: BuiltinTag | Place,
+): ObjectProperty {
+  let tagProperty: ObjectProperty;
+  switch (componentTag.kind) {
+    case 'BuiltinTag':
+      const tagPropertyPlace = createTemporaryPlace(fn.env, instr.value.loc);
+      const tagInstruction: Instruction = {
+        id: makeInstructionId(0),
+        lvalue: {...tagPropertyPlace, effect: Effect.Mutate},
+        value: {
+          kind: 'Primitive',
+          value: componentTag.name,
+          loc: instr.value.loc,
+        },
+        loc: instr.loc,
+      };
+      tagProperty = {
+        kind: 'ObjectProperty',
+        key: {name: 'type', kind: 'string'},
+        type: 'property',
+        place: {...tagPropertyPlace, effect: Effect.Capture},
+      };
+      nextInstructions.push(tagInstruction);
+      break;
+    case 'Identifier':
+      tagProperty = {
+        kind: 'ObjectProperty',
+        key: {name: 'type', kind: 'string'},
+        type: 'property',
+        place: {...componentTag, effect: Effect.Capture},
+      };
+      break;
+  }
+
+  return tagProperty;
+}
+
+function createPropsProperties(
+  fn: HIRFunction,
+  instr: Instruction,
+  nextInstructions: Array<Instruction>,
+  propAttributes: Array<JsxAttribute>,
+  children: Array<Place> | null,
+): {
+  refProperty: ObjectProperty;
+  keyProperty: ObjectProperty;
+  propsProperty: ObjectProperty;
+} {
+  let refProperty: ObjectProperty | undefined;
+  let keyProperty: ObjectProperty | undefined;
+  const props: Array<ObjectProperty> = [];
+  propAttributes.forEach(prop => {
+    switch (prop.kind) {
+      case 'JsxAttribute':
+        if (prop.name === 'ref') {
+          refProperty = {
+            kind: 'ObjectProperty',
+            key: {name: 'ref', kind: 'string'},
+            type: 'property',
+            place: {...prop.place},
+          };
+        } else if (prop.name === 'key') {
+          keyProperty = {
+            kind: 'ObjectProperty',
+            key: {name: 'key', kind: 'string'},
+            type: 'property',
+            place: {...prop.place},
+          };
+        } else {
+          const attributeProperty: ObjectProperty = {
+            kind: 'ObjectProperty',
+            key: {name: prop.name, kind: 'string'},
+            type: 'property',
+            place: {...prop.place},
+          };
+          props.push(attributeProperty);
+        }
+        break;
+      case 'JsxSpreadAttribute':
+        // TODO
+        break;
+    }
+  });
+  const propsPropertyPlace = createTemporaryPlace(fn.env, instr.value.loc);
+  if (children) {
+    const childrenPropPropertyPlace = createTemporaryPlace(
+      fn.env,
+      instr.value.loc,
+    );
+    const childrenPropInstruction: Instruction = {
+      id: makeInstructionId(0),
+      lvalue: {...childrenPropPropertyPlace, effect: Effect.Mutate},
+      value: {
+        kind: 'ArrayExpression',
+        elements: [...children],
+        loc: instr.value.loc,
+      },
+      loc: instr.loc,
+    };
+    nextInstructions.push(childrenPropInstruction);
+    const childrenPropProperty: ObjectProperty = {
+      kind: 'ObjectProperty',
+      key: {name: 'children', kind: 'string'},
+      type: 'property',
+      place: {...childrenPropPropertyPlace, effect: Effect.Capture},
+    };
+    props.push(childrenPropProperty);
+  }
+
+  if (refProperty == null) {
+    const refPropertyPlace = createTemporaryPlace(fn.env, instr.value.loc);
+    const refInstruction: Instruction = {
+      id: makeInstructionId(0),
+      lvalue: {...refPropertyPlace, effect: Effect.Mutate},
+      value: {
+        kind: 'Primitive',
+        value: null,
+        loc: instr.value.loc,
+      },
+      loc: instr.loc,
+    };
+    refProperty = {
+      kind: 'ObjectProperty',
+      key: {name: 'ref', kind: 'string'},
+      type: 'property',
+      place: {...refPropertyPlace, effect: Effect.Capture},
+    };
+    nextInstructions.push(refInstruction);
+  }
+
+  if (keyProperty == null) {
+    const keyPropertyPlace = createTemporaryPlace(fn.env, instr.value.loc);
+    const keyInstruction: Instruction = {
+      id: makeInstructionId(0),
+      lvalue: {...keyPropertyPlace, effect: Effect.Mutate},
+      value: {
+        kind: 'Primitive',
+        value: null,
+        loc: instr.value.loc,
+      },
+      loc: instr.loc,
+    };
+    keyProperty = {
+      kind: 'ObjectProperty',
+      key: {name: 'key', kind: 'string'},
+      type: 'property',
+      place: {...keyPropertyPlace, effect: Effect.Capture},
+    };
+    nextInstructions.push(keyInstruction);
+  }
+
+  const propsInstruction: Instruction = {
+    id: makeInstructionId(0),
+    lvalue: {...propsPropertyPlace, effect: Effect.Mutate},
+    value: {
+      kind: 'ObjectExpression',
+      properties: props,
+      loc: instr.value.loc,
+    },
+    loc: instr.loc,
+  };
+  const propsProperty: ObjectProperty = {
+    kind: 'ObjectProperty',
+    key: {name: 'props', kind: 'string'},
+    type: 'property',
+    place: {...propsPropertyPlace, effect: Effect.Capture},
+  };
+  nextInstructions.push(propsInstruction);
+  return {refProperty, keyProperty, propsProperty};
+}
 
 export function inlineJsxTransform(fn: HIRFunction): void {
   for (const [, block] of fn.body.blocks) {
@@ -28,245 +275,27 @@ export function inlineJsxTransform(fn: HIRFunction): void {
         case 'JsxExpression': {
           nextInstructions ??= block.instructions.slice(0, i);
 
-          const symbolPlace = createTemporaryPlace(fn.env, instr.value.loc);
-          const symbolInstruction: Instruction = {
-            id: makeInstructionId(0),
-            lvalue: {...symbolPlace, effect: Effect.Mutate},
-            value: {
-              kind: 'LoadGlobal',
-              binding: {kind: 'Global', name: 'Symbol'},
-              loc: instr.value.loc,
-            },
-            loc: instr.loc,
-          };
-          nextInstructions.push(symbolInstruction);
-
-          const symbolForPlace = createTemporaryPlace(fn.env, instr.value.loc);
-          const symbolForInstruction: Instruction = {
-            id: makeInstructionId(0),
-            lvalue: {...symbolForPlace, effect: Effect.Read},
-            value: {
-              kind: 'PropertyLoad',
-              object: symbolInstruction.lvalue,
-              property: 'for',
-              loc: instr.value.loc,
-            },
-            loc: instr.loc,
-          };
-          nextInstructions.push(symbolForInstruction);
-
-          const symbolValuePlace = createTemporaryPlace(
-            fn.env,
-            instr.value.loc,
-          );
-          const symbolValueInstruction: Instruction = {
-            id: makeInstructionId(0),
-            lvalue: {...symbolValuePlace, effect: Effect.Mutate},
-            value: {
-              kind: 'Primitive',
-              value: 'react.element',
-              loc: instr.value.loc,
-            },
-            loc: instr.loc,
-          };
-          nextInstructions.push(symbolValueInstruction);
-
-          const $$typeofPlace = createTemporaryPlace(fn.env, instr.value.loc);
-          const $$typeofInstruction: Instruction = {
-            id: makeInstructionId(0),
-            lvalue: {...$$typeofPlace, effect: Effect.Mutate},
-            value: {
-              kind: 'MethodCall',
-              receiver: symbolInstruction.lvalue,
-              property: symbolForInstruction.lvalue,
-              args: [symbolValueInstruction.lvalue],
-              loc: instr.value.loc,
-            },
-            loc: instr.loc,
-          };
-          const $$typeofProperty: ObjectProperty = {
-            kind: 'ObjectProperty',
-            key: {name: '$$typeof', kind: 'string'},
-            type: 'property',
-            place: {...$$typeofPlace, effect: Effect.Capture},
-          };
-          nextInstructions.push($$typeofInstruction);
-
-          let tagProperty: ObjectProperty;
-          const componentTag = instr.value.tag;
-          switch (componentTag.kind) {
-            case 'BuiltinTag':
-              const tagPropertyPlace = createTemporaryPlace(
-                fn.env,
-                instr.value.loc,
-              );
-              const tagInstruction: Instruction = {
-                id: makeInstructionId(0),
-                lvalue: {...tagPropertyPlace, effect: Effect.Mutate},
-                value: {
-                  kind: 'Primitive',
-                  value: componentTag.name,
-                  loc: instr.value.loc,
-                },
-                loc: instr.loc,
-              };
-              tagProperty = {
-                kind: 'ObjectProperty',
-                key: {name: 'type', kind: 'string'},
-                type: 'property',
-                place: {...tagPropertyPlace, effect: Effect.Capture},
-              };
-              nextInstructions.push(tagInstruction);
-              break;
-            case 'Identifier':
-              tagProperty = {
-                kind: 'ObjectProperty',
-                key: {name: 'type', kind: 'string'},
-                type: 'property',
-                place: {...componentTag, effect: Effect.Capture},
-              };
-              break;
-          }
-
-          let refProperty: ObjectProperty | undefined;
-          let keyProperty: ObjectProperty | undefined;
-          const props: Array<ObjectProperty> = [];
-          instr.value.props.forEach(prop => {
-            switch (prop.kind) {
-              case 'JsxAttribute':
-                if (prop.name === 'ref') {
-                  refProperty = {
-                    kind: 'ObjectProperty',
-                    key: {name: 'ref', kind: 'string'},
-                    type: 'property',
-                    place: {...prop.place},
-                  };
-                } else if (prop.name === 'key') {
-                  keyProperty = {
-                    kind: 'ObjectProperty',
-                    key: {name: 'key', kind: 'string'},
-                    type: 'property',
-                    place: {...prop.place},
-                  };
-                } else {
-                  const attributeProperty: ObjectProperty = {
-                    kind: 'ObjectProperty',
-                    key: {name: prop.name, kind: 'string'},
-                    type: 'property',
-                    place: {...prop.place},
-                  };
-                  props.push(attributeProperty);
-                }
-                break;
-              case 'JsxSpreadAttribute':
-                // TODO
-                break;
-            }
-          });
-          const propsPropertyPlace = createTemporaryPlace(
-            fn.env,
-            instr.value.loc,
-          );
-          if (instr.value.children) {
-            instr.value.children.forEach(child => {});
-            const childrenPropPropertyPlace = createTemporaryPlace(
-              fn.env,
-              instr.value.loc,
+          const {refProperty, keyProperty, propsProperty} =
+            createPropsProperties(
+              fn,
+              instr,
+              nextInstructions,
+              instr.value.props,
+              instr.value.children,
             );
-            const childrenPropInstruction: Instruction = {
-              id: makeInstructionId(0),
-              lvalue: {...childrenPropPropertyPlace, effect: Effect.Mutate},
-              value: {
-                kind: 'ArrayExpression',
-                elements: [...instr.value.children],
-                loc: instr.value.loc,
-              },
-              loc: instr.loc,
-            };
-            nextInstructions.push(childrenPropInstruction);
-            const childrenPropProperty: ObjectProperty = {
-              kind: 'ObjectProperty',
-              key: {name: 'children', kind: 'string'},
-              type: 'property',
-              place: {...childrenPropPropertyPlace, effect: Effect.Capture},
-            };
-            props.push(childrenPropProperty);
-          }
-
-          if (refProperty == null) {
-            const refPropertyPlace = createTemporaryPlace(
-              fn.env,
-              instr.value.loc,
-            );
-            const refInstruction: Instruction = {
-              id: makeInstructionId(0),
-              lvalue: {...refPropertyPlace, effect: Effect.Mutate},
-              value: {
-                kind: 'Primitive',
-                value: null,
-                loc: instr.value.loc,
-              },
-              loc: instr.loc,
-            };
-            refProperty = {
-              kind: 'ObjectProperty',
-              key: {name: 'ref', kind: 'string'},
-              type: 'property',
-              place: {...refPropertyPlace, effect: Effect.Capture},
-            };
-            nextInstructions.push(refInstruction);
-          }
-
-          if (keyProperty == null) {
-            const keyPropertyPlace = createTemporaryPlace(
-              fn.env,
-              instr.value.loc,
-            );
-            const keyInstruction: Instruction = {
-              id: makeInstructionId(0),
-              lvalue: {...keyPropertyPlace, effect: Effect.Mutate},
-              value: {
-                kind: 'Primitive',
-                value: null,
-                loc: instr.value.loc,
-              },
-              loc: instr.loc,
-            };
-            keyProperty = {
-              kind: 'ObjectProperty',
-              key: {name: 'key', kind: 'string'},
-              type: 'property',
-              place: {...keyPropertyPlace, effect: Effect.Capture},
-            };
-            nextInstructions.push(keyInstruction);
-          }
-
-          const propsInstruction: Instruction = {
-            id: makeInstructionId(0),
-            lvalue: {...propsPropertyPlace, effect: Effect.Mutate},
-            value: {
-              kind: 'ObjectExpression',
-              properties: props,
-              loc: instr.value.loc,
-            },
-            loc: instr.loc,
-          };
-          const propsProperty: ObjectProperty = {
-            kind: 'ObjectProperty',
-            key: {name: 'props', kind: 'string'},
-            type: 'property',
-            place: {...propsPropertyPlace, effect: Effect.Capture},
-          };
-          nextInstructions.push(propsInstruction);
-
           const reactElementInstruction: Instruction = {
             id: makeInstructionId(0),
             lvalue: {...instr.lvalue, effect: Effect.Store},
             value: {
               kind: 'ObjectExpression',
               properties: [
-                $$typeofProperty,
-                tagProperty,
+                create$$typeofProperty(
+                  fn,
+                  instr,
+                  nextInstructions,
+                  'react.element',
+                ),
+                createTagProperty(fn, instr, nextInstructions, instr.value.tag),
                 refProperty,
                 keyProperty,
                 propsProperty,
@@ -275,7 +304,6 @@ export function inlineJsxTransform(fn: HIRFunction): void {
             },
             loc: instr.loc,
           };
-
           nextInstructions.push(reactElementInstruction);
 
           break;
@@ -283,8 +311,6 @@ export function inlineJsxTransform(fn: HIRFunction): void {
         case 'JsxFragment': {
           // TODO
           // nextInstructions ??= block.instructions.slice(0, i);
-          // similar to above
-          // don't emit the `instr`, create new instructions and push to nextInstructions
           break;
         }
         default: {
