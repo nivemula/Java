@@ -3,26 +3,26 @@
 
 ```javascript
 // @enableInlineJsxTransform @enableReactiveScopesInHIR
-function Component(props) {
-  return <Parent x="x" y={5}><Child /></Parent>
+function SimpleComponent(props) {
+  return <div />
 }
-  
 ```
 
 ## Code
 
 ```javascript
 import { c as _c } from "react/compiler-runtime"; // @enableInlineJsxTransform @enableReactiveScopesInHIR
-function Component(props) {
+function SimpleComponent(props) {
   const $ = _c(1);
-  Parent;
-  ("x");
-  5;
-  Child;
-  ({ $$typeof: Symbol.for("react.element") });
   let t0;
   if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
-    t0 = { $$typeof: Symbol.for("react.element") };
+    t0 = {
+      $$typeof: Symbol.for("react.element"),
+      type: "div",
+      ref: null,
+      key: null,
+      props: {},
+    };
     $[0] = t0;
   } else {
     t0 = $[0];

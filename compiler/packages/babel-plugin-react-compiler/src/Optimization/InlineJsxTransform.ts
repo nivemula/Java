@@ -11,9 +11,7 @@ import {
   HIRFunction,
   Instruction,
   makeInstructionId,
-  ObjectMethod,
   ObjectProperty,
-  Primitive,
 } from '../HIR';
 import {
   createTemporaryPlace,
@@ -77,7 +75,7 @@ export function inlineJsxTransform(fn: HIRFunction): void {
           const $$typeofPlace = createTemporaryPlace(fn.env, instr.value.loc);
           const $$typeofInstruction: Instruction = {
             id: makeInstructionId(0),
-            lvalue: {...$$typeofPlace},
+            lvalue: {...$$typeofPlace, effect: Effect.Mutate},
             value: {
               kind: 'MethodCall',
               receiver: symbolInstruction.lvalue,
@@ -93,19 +91,124 @@ export function inlineJsxTransform(fn: HIRFunction): void {
             type: 'property',
             place: {...$$typeofPlace, effect: Effect.Capture},
           };
+          nextInstructions.push($$typeofInstruction);
+
+          const tagPropertyPlace = createTemporaryPlace(
+            fn.env,
+            instr.value.loc,
+          );
+          let tagInstruction: Instruction | null;
+          const componentTag = instr.value.tag;
+          switch (componentTag.kind) {
+            case 'BuiltinTag':
+              tagInstruction = {
+                id: makeInstructionId(0),
+                lvalue: {...tagPropertyPlace, effect: Effect.Mutate},
+                value: {
+                  kind: 'Primitive',
+                  value: componentTag.name,
+                  loc: instr.value.loc,
+                },
+                loc: instr.loc,
+              };
+              break;
+            case 'Identifier':
+              tagInstruction = null;
+              break;
+          }
+          const tagProperty: ObjectProperty = {
+            kind: 'ObjectProperty',
+            key: {name: 'type', kind: 'string'},
+            type: 'property',
+            place: {...tagPropertyPlace, effect: Effect.Capture},
+          };
+          if (tagInstruction != null) {
+            nextInstructions.push(tagInstruction);
+          }
+
+          const refPropertyPlace = createTemporaryPlace(
+            fn.env,
+            instr.value.loc,
+          );
+          const refInstruction: Instruction = {
+            id: makeInstructionId(0),
+            lvalue: {...refPropertyPlace, effect: Effect.Mutate},
+            value: {
+              kind: 'Primitive',
+              value: null,
+              loc: instr.value.loc,
+            },
+            loc: instr.loc,
+          };
+          const refProperty: ObjectProperty = {
+            kind: 'ObjectProperty',
+            key: {name: 'ref', kind: 'string'},
+            type: 'property',
+            place: {...refPropertyPlace, effect: Effect.Capture},
+          };
+          nextInstructions.push(refInstruction);
+
+          const keyPropertyPlace = createTemporaryPlace(
+            fn.env,
+            instr.value.loc,
+          );
+          const keyInstruction: Instruction = {
+            id: makeInstructionId(0),
+            lvalue: {...keyPropertyPlace, effect: Effect.Mutate},
+            value: {
+              kind: 'Primitive',
+              value: null,
+              loc: instr.value.loc,
+            },
+            loc: instr.loc,
+          };
+          const keyProperty: ObjectProperty = {
+            kind: 'ObjectProperty',
+            key: {name: 'key', kind: 'string'},
+            type: 'property',
+            place: {...keyPropertyPlace, effect: Effect.Capture},
+          };
+          nextInstructions.push(keyInstruction);
+
+          const propsPropertyPlace = createTemporaryPlace(
+            fn.env,
+            instr.value.loc,
+          );
+          const propsInstruction: Instruction = {
+            id: makeInstructionId(0),
+            lvalue: {...propsPropertyPlace, effect: Effect.Mutate},
+            value: {
+              kind: 'ObjectExpression',
+              properties: [],
+              loc: instr.value.loc,
+            },
+            loc: instr.loc,
+          };
+          const propsProperty: ObjectProperty = {
+            kind: 'ObjectProperty',
+            key: {name: 'props', kind: 'string'},
+            type: 'property',
+            place: {...propsPropertyPlace, effect: Effect.Capture},
+          };
+          nextInstructions.push(propsInstruction);
 
           const reactElementInstruction: Instruction = {
             id: makeInstructionId(0),
             lvalue: {...instr.lvalue, effect: Effect.Store},
             value: {
               kind: 'ObjectExpression',
-              properties: [$$typeofProperty],
+              properties: [
+                $$typeofProperty,
+                tagProperty,
+                refProperty,
+                keyProperty,
+                propsProperty,
+              ],
               loc: instr.value.loc,
             },
             loc: instr.loc,
           };
 
-          nextInstructions.push($$typeofInstruction);
           nextInstructions.push(reactElementInstruction);
 
           break;
