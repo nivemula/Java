@@ -14,6 +14,7 @@ import {
   ObjectProperty,
 } from '../HIR';
 import {
+  clonePlaceToTemporary,
   createTemporaryPlace,
   markInstructionIds,
   markPredecessors,
@@ -93,15 +94,15 @@ export function inlineJsxTransform(fn: HIRFunction): void {
           };
           nextInstructions.push($$typeofInstruction);
 
-          const tagPropertyPlace = createTemporaryPlace(
-            fn.env,
-            instr.value.loc,
-          );
-          let tagInstruction: Instruction | null;
+          let tagProperty: ObjectProperty;
           const componentTag = instr.value.tag;
           switch (componentTag.kind) {
             case 'BuiltinTag':
-              tagInstruction = {
+              const tagPropertyPlace = createTemporaryPlace(
+                fn.env,
+                instr.value.loc,
+              );
+              const tagInstruction: Instruction = {
                 id: makeInstructionId(0),
                 lvalue: {...tagPropertyPlace, effect: Effect.Mutate},
                 value: {
@@ -111,42 +112,64 @@ export function inlineJsxTransform(fn: HIRFunction): void {
                 },
                 loc: instr.loc,
               };
+              tagProperty = {
+                kind: 'ObjectProperty',
+                key: {name: 'type', kind: 'string'},
+                type: 'property',
+                place: {...tagPropertyPlace, effect: Effect.Capture},
+              };
+              nextInstructions.push(tagInstruction);
               break;
             case 'Identifier':
-              tagInstruction = null;
+              tagProperty = {
+                kind: 'ObjectProperty',
+                key: {name: 'type', kind: 'string'},
+                type: 'property',
+                place: {...componentTag, effect: Effect.Capture},
+              };
               break;
           }
-          const tagProperty: ObjectProperty = {
-            kind: 'ObjectProperty',
-            key: {name: 'type', kind: 'string'},
-            type: 'property',
-            place: {...tagPropertyPlace, effect: Effect.Capture},
-          };
-          if (tagInstruction != null) {
-            nextInstructions.push(tagInstruction);
-          }
 
-          const refPropertyPlace = createTemporaryPlace(
-            fn.env,
-            instr.value.loc,
-          );
-          const refInstruction: Instruction = {
-            id: makeInstructionId(0),
-            lvalue: {...refPropertyPlace, effect: Effect.Mutate},
-            value: {
-              kind: 'Primitive',
-              value: null,
-              loc: instr.value.loc,
-            },
-            loc: instr.loc,
-          };
-          const refProperty: ObjectProperty = {
-            kind: 'ObjectProperty',
-            key: {name: 'ref', kind: 'string'},
-            type: 'property',
-            place: {...refPropertyPlace, effect: Effect.Capture},
-          };
-          nextInstructions.push(refInstruction);
+          let refProperty: ObjectProperty | undefined;
+          instr.value.props.forEach(prop => {
+            switch (prop.kind) {
+              case 'JsxAttribute':
+                if (prop.name === 'ref') {
+                  refProperty = {
+                    kind: 'ObjectProperty',
+                    key: {name: 'type', kind: 'string'},
+                    type: 'property',
+                    place: {...prop.place},
+                  };
+                }
+                break;
+              case 'JsxSpreadAttribute':
+                break;
+            }
+          });
+          if (refProperty == null) {
+            const refPropertyPlace = createTemporaryPlace(
+              fn.env,
+              instr.value.loc,
+            );
+            const refInstruction: Instruction = {
+              id: makeInstructionId(0),
+              lvalue: {...refPropertyPlace, effect: Effect.Mutate},
+              value: {
+                kind: 'Primitive',
+                value: null,
+                loc: instr.value.loc,
+              },
+              loc: instr.loc,
+            };
+            refProperty = {
+              kind: 'ObjectProperty',
+              key: {name: 'ref', kind: 'string'},
+              type: 'property',
+              place: {...refPropertyPlace, effect: Effect.Capture},
+            };
+            nextInstructions.push(refInstruction);
+          }
 
           const keyPropertyPlace = createTemporaryPlace(
             fn.env,
