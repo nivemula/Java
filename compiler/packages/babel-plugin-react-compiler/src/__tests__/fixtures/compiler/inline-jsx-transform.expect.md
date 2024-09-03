@@ -3,31 +3,29 @@
 
 ```javascript
 // @enableInlineJsxTransform @enableReactiveScopesInHIR
-function SimpleComponent(props) {
-  return <div />
+
+function Parent({children, a: _a, b: _b, c: _c, ref}) {
+  return <div ref={ref}>{children}</div>
 }
 
-function SimpleCustomComponent(props) {
-  return <SimpleComponent />;
+function Child({children}) {
+  return <div>{children}</div>
 }
 
-function SpecialProps(props) {
+function GrandChild({
+  className
+}) {
+  return <span className={className}>Hello world</span>;
+}
+
+function ParentAndRefAndKey(props) {
   const testRef = useRef();
-  return <div key='testKey' ref={testRef} />
-}
-
-function CustomProps(props) {
-  return <Component a='a' b={{b: 'b'}} c={C} />
-}
-
-function AllProps(props) {
-  const testRef = useRef();
-  return <Component a='a' b={{b: 'b'}} c={C} key='testKey' ref={testRef} />
+  return <Parent a='a' b={{b: 'b'}} c={C} key='testKey' ref={testRef} />
 }
 
 function ParentAndChildren(props) {
   return (
-    <Parent foo='bar'>
+    <Parent foo={props.foo}>
       <Child key='a' />
       <Child key='b'>
         <GrandChild className='gc-1' />
@@ -35,93 +33,86 @@ function ParentAndChildren(props) {
     </Parent>
   )
 }
+
+export const FIXTURE_ENTRYPOINT = {
+  fn: ParentAndChildren,
+  params: [{foo: 'abc'}],
+}
 ```
 
 ## Code
 
 ```javascript
-import { c as _c } from "react/compiler-runtime"; // @enableInlineJsxTransform @enableReactiveScopesInHIR
-function SimpleComponent(props) {
-  const $ = _c(1);
-  let t0;
-  if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
-    t0 = {
-      $$typeof: Symbol.for("react.element"),
+import { c as _c2 } from "react/compiler-runtime"; // @enableInlineJsxTransform @enableReactiveScopesInHIR
+
+function Parent(t0) {
+  const $ = _c2(2);
+  const { children, ref } = t0;
+  let t1;
+  if ($[0] !== children) {
+    t1 = {
+      $$typeof: Symbol.for("react.transitional.element"),
+      type: "div",
+      ref: ref,
+      key: null,
+      props: { children: [children] },
+    };
+    $[0] = children;
+    $[1] = t1;
+  } else {
+    t1 = $[1];
+  }
+  return t1;
+}
+
+function Child(t0) {
+  const $ = _c2(2);
+  const { children } = t0;
+  let t1;
+  if ($[0] !== children) {
+    t1 = {
+      $$typeof: Symbol.for("react.transitional.element"),
       type: "div",
       ref: null,
       key: null,
-      props: {},
+      props: { children: [children] },
     };
-    $[0] = t0;
+    $[0] = children;
+    $[1] = t1;
   } else {
-    t0 = $[0];
+    t1 = $[1];
   }
-  return t0;
+  return t1;
 }
 
-function SimpleCustomComponent(props) {
-  const $ = _c(1);
-  let t0;
-  if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
-    t0 = {
-      $$typeof: Symbol.for("react.element"),
-      type: SimpleComponent,
+function GrandChild(t0) {
+  const $ = _c2(2);
+  const { className } = t0;
+  let t1;
+  if ($[0] !== className) {
+    t1 = {
+      $$typeof: Symbol.for("react.transitional.element"),
+      type: "span",
       ref: null,
       key: null,
-      props: {},
+      props: { className: className, children: ["Hello world"] },
     };
-    $[0] = t0;
+    $[0] = className;
+    $[1] = t1;
   } else {
-    t0 = $[0];
+    t1 = $[1];
   }
-  return t0;
+  return t1;
 }
 
-function SpecialProps(props) {
-  const $ = _c(1);
+function ParentAndRefAndKey(props) {
+  const $ = _c2(1);
   const testRef = useRef();
   let t0;
   if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
     t0 = {
-      $$typeof: Symbol.for("react.element"),
-      type: "div",
-      ref: testRef,
-      key: "testKey",
-      props: {},
-    };
-    $[0] = t0;
-  } else {
-    t0 = $[0];
-  }
-  return t0;
-}
-
-function CustomProps(props) {
-  const $ = _c(1);
-  let t0;
-  if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
-    t0 = {
-      $$typeof: Symbol.for("react.element"),
-      type: Component,
-      ref: null,
-      key: null,
-      props: { a: "a", b: { b: "b" }, c: C },
-    };
-    $[0] = t0;
-  } else {
-    t0 = $[0];
-  }
-  return t0;
-}
-
-function AllProps(props) {
-  const $ = _c(1);
-  const testRef = useRef();
-  let t0;
-  if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
-    t0 = {
-      $$typeof: Symbol.for("react.element"),
-      type: Component,
+      $$typeof: Symbol.for("react.transitional.element"),
+      type: Parent,
       ref: testRef,
       key: "testKey",
       props: { a: "a", b: { b: "b" }, c: C },
@@ -134,11 +125,11 @@ function AllProps(props) {
 }
 
 function ParentAndChildren(props) {
-  const $ = _c(2);
+  const $ = _c2(4);
   let t0;
   if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
     t0 = {
-      $$typeof: Symbol.for("react.element"),
+      $$typeof: Symbol.for("react.transitional.element"),
       type: Child,
       ref: null,
       key: "a",
@@ -151,30 +142,18 @@ function ParentAndChildren(props) {
   let t1;
   if ($[1] === Symbol.for("react.memo_cache_sentinel")) {
     t1 = {
-      $$typeof: Symbol.for("react.element"),
-      type: Parent,
+      $$typeof: Symbol.for("react.transitional.element"),
+      type: Child,
       ref: null,
-      key: null,
+      key: "b",
       props: {
-        foo: "bar",
         children: [
-          t0,
           {
-            $$typeof: Symbol.for("react.element"),
-            type: Child,
+            $$typeof: Symbol.for("react.transitional.element"),
+            type: GrandChild,
             ref: null,
-            key: "b",
-            props: {
-              children: [
-                {
-                  $$typeof: Symbol.for("react.element"),
-                  type: GrandChild,
-                  ref: null,
-                  key: null,
-                  props: { className: "gc-1" },
-                },
-              ],
-            },
+            key: null,
+            props: { className: "gc-1" },
           },
         ],
       },
@@ -183,10 +162,29 @@ function ParentAndChildren(props) {
   } else {
     t1 = $[1];
   }
-  return t1;
+  let t2;
+  if ($[2] !== props.foo) {
+    t2 = {
+      $$typeof: Symbol.for("react.transitional.element"),
+      type: Parent,
+      ref: null,
+      key: null,
+      props: { foo: props.foo, children: [t0, t1] },
+    };
+    $[2] = props.foo;
+    $[3] = t2;
+  } else {
+    t2 = $[3];
+  }
+  return t2;
 }
+
+export const FIXTURE_ENTRYPOINT = {
+  fn: ParentAndChildren,
+  params: [{ foo: "abc" }],
+};
 
 ```
       
 ### Eval output
-(kind: exception) Fixture not implemented
+(kind: ok) <div><div></div><div><span class="gc-1">Hello world</span></div></div>

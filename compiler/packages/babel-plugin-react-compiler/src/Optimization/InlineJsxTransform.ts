@@ -293,7 +293,7 @@ export function inlineJsxTransform(fn: HIRFunction): void {
                   fn,
                   instr,
                   nextInstructions,
-                  'react.element',
+                  'react.transitional.element',
                 ),
                 createTagProperty(fn, instr, nextInstructions, instr.value.tag),
                 refProperty,

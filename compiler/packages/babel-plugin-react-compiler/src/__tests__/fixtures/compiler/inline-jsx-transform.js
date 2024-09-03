@@ -1,33 +1,36 @@
 // @enableInlineJsxTransform @enableReactiveScopesInHIR
-function SimpleComponent(props) {
-  return <div />
+
+function Parent({children, a: _a, b: _b, c: _c, ref}) {
+  return <div ref={ref}>{children}</div>
 }
 
-function SimpleCustomComponent(props) {
-  return <SimpleComponent />;
+function Child({children}) {
+  return <div>{children}</div>
 }
 
-function SpecialProps(props) {
+function GrandChild({
+  className
+}) {
+  return <span className={className}>Hello world</span>;
+}
+
+function ParentAndRefAndKey(props) {
   const testRef = useRef();
-  return <div key='testKey' ref={testRef} />
-}
-
-function CustomProps(props) {
-  return <Component a='a' b={{b: 'b'}} c={C} />
-}
-
-function AllProps(props) {
-  const testRef = useRef();
-  return <Component a='a' b={{b: 'b'}} c={C} key='testKey' ref={testRef} />
+  return <Parent a='a' b={{b: 'b'}} c={C} key='testKey' ref={testRef} />
 }
 
 function ParentAndChildren(props) {
   return (
-    <Parent foo='bar'>
+    <Parent foo={props.foo}>
       <Child key='a' />
       <Child key='b'>
         <GrandChild className='gc-1' />
       </Child>
     </Parent>
   )
+}
+
+export const FIXTURE_ENTRYPOINT = {
+  fn: ParentAndChildren,
+  params: [{foo: 'abc'}],
 }
