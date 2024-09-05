@@ -1440,6 +1440,11 @@ function lowerObjectPropertyKey(
       kind: 'identifier',
       name: key.node.name,
     };
+  } else if (key.isNumericLiteral()) {
+    return {
+      kind: 'identifier',
+      name: String(key.node.value),
+    };
   }
 
   builder.errors.push({
