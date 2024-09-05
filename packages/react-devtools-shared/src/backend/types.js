@@ -510,6 +510,7 @@ export type DevToolsHook = {
   // Testing
   dangerous_setTargetConsoleForTesting?: (fakeConsole: Object) => void,
 
+  settings: DevToolsHookSettings,
   ...
 };
 
@@ -519,4 +520,11 @@ export type ConsolePatchSettings = {
   showInlineWarningsAndErrors: boolean,
   hideConsoleLogsInStrictMode: boolean,
   browserTheme: BrowserTheme,
+};
+
+export type DevToolsHookSettings = {
+  appendComponentStack: boolean,
+  breakOnConsoleErrors: boolean,
+  showInlineWarningsAndErrors: boolean,
+  hideConsoleLogsInStrictMode: boolean,
 };
