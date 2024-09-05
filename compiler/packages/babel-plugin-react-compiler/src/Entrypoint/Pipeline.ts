@@ -41,6 +41,7 @@ import {
   constantPropagation,
   deadCodeElimination,
   pruneMaybeThrows,
+  inlineJsxTransform
 } from '../Optimization';
 import {instructionReordering} from '../Optimization/InstructionReordering';
 import {
@@ -347,6 +348,15 @@ function* runWithEnvironment(
     });
     assertTerminalSuccessorsExist(hir);
     assertTerminalPredsExist(hir);
+  }
+
+  if(env.config.enableInlineJsxTransform && env.config.enableReactiveScopesInHIR) {
+    inlineJsxTransform(hir);
+    yield log({
+      kind: 'hir',
+      name: 'inlineJsxTransform',
+      value: hir
+    })
   }
 
   const reactiveFunction = buildReactiveFunction(hir);
