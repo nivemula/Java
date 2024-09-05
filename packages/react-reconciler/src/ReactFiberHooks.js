@@ -3229,9 +3229,12 @@ export function requestFormReset(formFiber: Fiber) {
 
   const stateHook = ensureFormComponentIsStateful(formFiber);
   const newResetState = {};
-  const resetStateHook: Hook = (stateHook.next: any);
-  const resetStateQueue = resetStateHook.queue;
-  dispatchSetState(formFiber, resetStateQueue, newResetState);
+  const resetStateHook: Hook | null = stateHook.next;
+  // just in case next is null
+  if (resetStateHook) {
+    const resetStateQueue = resetStateHook.queue;
+    dispatchSetState(formFiber, resetStateQueue, newResetState);
+  }
 }
 
 function mountTransition(): [
