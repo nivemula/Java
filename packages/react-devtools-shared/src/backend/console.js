@@ -33,7 +33,7 @@ import {
   supportsConsoleTasks,
 } from './fiber/DevToolsFiberComponentStack';
 import {formatOwnerStack} from './shared/DevToolsOwnerStack';
-import {castBool, castBrowserTheme} from '../utils';
+import {castBool} from '../utils';
 
 const OVERRIDE_CONSOLE_METHODS = ['error', 'trace', 'warn'];
 
@@ -156,7 +156,6 @@ const consoleSettingsRef: ConsolePatchSettings = {
   breakOnConsoleErrors: false,
   showInlineWarningsAndErrors: false,
   hideConsoleLogsInStrictMode: false,
-  browserTheme: 'dark',
 };
 
 // Patches console methods to append component stack for the current fiber.
@@ -166,15 +165,13 @@ export function patch({
   breakOnConsoleErrors,
   showInlineWarningsAndErrors,
   hideConsoleLogsInStrictMode,
-  browserTheme,
-}: ConsolePatchSettings): void {
+}: $ReadOnly<ConsolePatchSettings>): void {
   // Settings may change after we've patched the console.
   // Using a shared ref allows the patch function to read the latest values.
   consoleSettingsRef.appendComponentStack = appendComponentStack;
   consoleSettingsRef.breakOnConsoleErrors = breakOnConsoleErrors;
   consoleSettingsRef.showInlineWarningsAndErrors = showInlineWarningsAndErrors;
   consoleSettingsRef.hideConsoleLogsInStrictMode = hideConsoleLogsInStrictMode;
-  consoleSettingsRef.browserTheme = browserTheme;
 
   if (
     appendComponentStack ||
@@ -449,15 +446,12 @@ export function patchConsoleUsingWindowValues() {
   const hideConsoleLogsInStrictMode =
     castBool(window.__REACT_DEVTOOLS_HIDE_CONSOLE_LOGS_IN_STRICT_MODE__) ??
     false;
-  const browserTheme =
-    castBrowserTheme(window.__REACT_DEVTOOLS_BROWSER_THEME__) ?? 'dark';
 
   patch({
     appendComponentStack,
     breakOnConsoleErrors,
     showInlineWarningsAndErrors,
     hideConsoleLogsInStrictMode,
-    browserTheme,
   });
 }
 
@@ -475,7 +469,6 @@ export function writeConsolePatchSettingsToWindow(
     settings.showInlineWarningsAndErrors;
   window.__REACT_DEVTOOLS_HIDE_CONSOLE_LOGS_IN_STRICT_MODE__ =
     settings.hideConsoleLogsInStrictMode;
-  window.__REACT_DEVTOOLS_BROWSER_THEME__ = settings.browserTheme;
 }
 
 export function installConsoleFunctionsToWindow(): void {
